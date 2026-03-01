@@ -1,29 +1,25 @@
-# Repositorio de Templates MCP
+# MCP Server Template
 
-Repositorio centralizado de templates reutilizaveis para criacao de servidores compatíveis com o protocolo MCP (Model Context Protocol), utilizando TypeScript e o SDK oficial `@modelcontextprotocol/sdk`.
+Template TypeScript para criacao de servidores MCP (Model Context Protocol) usando o SDK oficial `@modelcontextprotocol/sdk`.
 
-O objetivo do repositório e fornecer uma base estruturada, tipada e pronta para extensao que qualquer projeto possa copiar e adaptar sem precisar configurar o servidor do zero.
+Copie este repositorio como ponto de partida para qualquer novo servidor MCP. A estrutura ja esta pronta com contrato de tool, adaptador de registro e uma tool de exemplo.
 
 ---
 
-## Estrutura do repositório
+## Estrutura
 
 ```text
-mesh/
-├── templates/
-│   └── mcp-server-template/     # Template principal do servidor MCP
-│       ├── src/
-│       │   ├── core/
-│       │   │   └── protocols/
-│       │   │       └── McpTool.ts       # Interface base para todas as tools
-│       │   ├── adapters/
-│       │   │   └── registerMcpTools.ts  # Adaptador que registra tools no McpServer
-│       │   ├── tools/
-│       │   │   └── HealthTool.ts        # Tool de exemplo (health check)
-│       │   └── main.ts                  # Bootstrap do servidor (stdio)
-│       ├── claude_desktop_config.example.json
-│       ├── package.json
-│       └── tsconfig.json
+.
+├── src/
+│   ├── core/
+│   │   └── protocols/
+│   │       └── McpTool.ts       # Interface base para todas as tools
+│   ├── adapters/
+│   │   └── registerMcpTools.ts  # Registra tools no McpServer
+│   ├── tools/
+│   │   └── HealthTool.ts        # Tool de exemplo (health check)
+│   └── main.ts                  # Bootstrap do servidor (stdio)
+├── claude_desktop_config.example.json
 ├── package.json
 └── tsconfig.json
 ```
@@ -32,9 +28,9 @@ mesh/
 
 ## Decisoes de arquitetura
 
-### Camada `core/protocols`
+### `core/protocols/McpTool.ts`
 
-Define o contrato `McpTool`, a interface que toda tool concreta deve implementar. Isso desacopla o registro das tools do SDK e permite que novas tools sejam adicionadas sem tocar em infraestrutura.
+Contrato que toda tool deve implementar. Desacopla as tools do SDK, tornando cada uma independente e testavel.
 
 ```ts
 export interface McpTool<
@@ -47,17 +43,19 @@ export interface McpTool<
 }
 ```
 
-### Camada `adapters`
+### `adapters/registerMcpTools.ts`
 
-O `registerMcpTools` e o unico ponto que conhece o `McpServer` do SDK. Ele itera sobre a lista de tools e faz o bind de cada uma via `server.registerTool`, mantendo o resto do código desacoplado do SDK.
+Unico ponto que conhece o `McpServer`. Itera sobre as tools e faz o bind via `server.registerTool`, mantendo o resto do codigo desacoplado do SDK.
 
-### Camada `tools`
+### `tools/`
 
-Cada tool e uma classe que implementa `McpTool`. O `inputSchema` e definido com tipos Zod para que o SDK possa validar e documentar os parametros automaticamente.
+Cada tool e uma classe que implementa `McpTool`. O `inputSchema` usa tipos Zod para que o SDK valide e documente os parametros automaticamente.
 
 ### `main.ts`
 
-Ponto de entrada do processo. Instancia o servidor, registra as tools e conecta o transporte `stdio`. Usa `console.error` para todos os logs — nunca `console.log` — pois o canal `stdout` e reservado para a comunicacao MCP.
+Bootstrap do processo. Instancia o servidor, registra as tools e conecta o transporte `stdio`.
+
+> Regra importante: nunca use `console.log` — o canal `stdout` e reservado para o protocolo MCP. Use sempre `console.error` para logs.
 
 ---
 
@@ -68,27 +66,25 @@ npm install
 npm run dev
 ```
 
-O comando executa o projeto em modo watch a partir de `templates/mcp-server-template`.
+---
+
+## Scripts
+
+| Comando             | Descricao                                 |
+| ------------------- | ----------------------------------------- |
+| `npm run dev`       | Modo desenvolvimento com hot reload (tsx) |
+| `npm run build`     | Compila TypeScript para `build/`          |
+| `npm run start`     | Executa o servidor compilado              |
+| `npm run typecheck` | Valida tipos sem emitir arquivos          |
 
 ---
 
-## Scripts disponíveis
+## Como usar este template
 
-| Comando               | Descricao                                                |
-| --------------------- | -------------------------------------------------------- |
-| `npm run dev`       | Inicia o template em modo desenvolvimento com hot reload |
-| `npm run build`     | Compila o TypeScript para `build/`                     |
-| `npm run start`     | Executa o servidor compilado via `node build/main.js`  |
-| `npm run typecheck` | Valida os tipos sem emitir arquivos                      |
-
----
-
-## Como criar um novo servidor MCP a partir do template
-
-### 1. Copie o template
+### 1. Copie o repositorio
 
 ```bash
-cp -r templates/mcp-server-template ../meu-novo-mcp
+cp -r mcp-server-template ../meu-novo-mcp
 cd ../meu-novo-mcp
 npm install
 ```
@@ -102,7 +98,7 @@ node build/main.js
 
 ### 3. Configure o cliente MCP
 
-Use o arquivo `claude_desktop_config.example.json` como base. Abra o arquivo de configuracao do Claude Desktop e adicione a entrada correspondente ao seu servidor:
+Use `claude_desktop_config.example.json` como base:
 
 ```json
 {
@@ -119,9 +115,7 @@ Use o arquivo `claude_desktop_config.example.json` como base. Abra o arquivo de 
 
 ## Como adicionar uma nova tool
 
-### 1. Crie a classe da tool
-
-Crie um arquivo em `src/tools/` implementando a interface `McpTool`:
+### 1. Crie a classe da tool em `src/tools/`
 
 ```ts
 // src/tools/MinhaFerramenta.ts
@@ -142,9 +136,7 @@ export class MinhaFerramenta implements McpTool<{ mensagem: string }> {
 }
 ```
 
-### 2. Registre a tool no bootstrap
-
-Em `src/main.ts`, adicione a instancia à lista passada para `registerMcpTools`:
+### 2. Registre em `src/main.ts`
 
 ```ts
 import { MinhaFerramenta } from "./tools/MinhaFerramenta.js";
@@ -154,17 +146,11 @@ registerMcpTools(server, [new HealthTool(), new MinhaFerramenta()]);
 
 ---
 
-## Regra importante sobre logs
-
-Em servidores MCP que usam transporte `stdio`, o canal `stdout` e utilizado exclusivamente para a troca de mensagens do protocolo. Por isso, **nunca use `console.log`** dentro do servidor. Use apenas `console.error` para emitir logs de depuracao ou informacoes de status.
-
----
-
 ## Dependencias
 
-| Pacote                        | Finalidade                                      |
-| ----------------------------- | ----------------------------------------------- |
-| `@modelcontextprotocol/sdk` | SDK oficial para criacao de servidores MCP      |
-| `zod`                       | Validacao e tipagem dos inputs das tools        |
-| `tsx`                       | Execucao de TypeScript sem etapa de build (dev) |
-| `typescript`                | Compilador TypeScript                           |
+| Pacote                      | Finalidade                                 |
+| --------------------------- | ------------------------------------------ |
+| `@modelcontextprotocol/sdk` | SDK oficial para criacao de servidores MCP |
+| `zod`                       | Validacao e tipagem dos inputs das tools   |
+| `tsx`                       | Execucao de TypeScript sem build (dev)     |
+| `typescript`                | Compilador TypeScript                      |
